@@ -7,7 +7,7 @@ st.set_page_config(
     page_title="Finance Instructions & Follow-ups", layout="wide"
 )
 
-# Create local folders for uploaded PDF files
+# Create local folders for uploaded files if they don't exist
 os.makedirs("uploads/descriptions", exist_ok=True)
 os.makedirs("uploads/receipts", exist_ok=True)
 
@@ -25,9 +25,11 @@ if "data" not in st.session_state:
           "Amount",
           "Description Text",
           "Description File",
+          "Description URL",
           "Project",
           "Status",
           "Payment Receipt PDF",
+          "Receipt URL",
           "Due Date",
           "Admin Creating",
           "Created Time",
@@ -49,7 +51,10 @@ with st.sidebar:
         "1. Type & Vendor/Customer Name",
         placeholder="e.g., Vendor Payment - UDL Building",
     )
-    amount = st.number_input("2. Amount", min_value=0.0, step=100.0)
+    # Currency updated to Rupees
+    amount = st.number_input(
+        "2. Amount (₹)", min_value=0.0, step=1000.0, format="%.2f"
+    )
 
     st.markdown("---")
     st.markdown("**3. Description Details**")
@@ -65,13 +70,13 @@ with st.sidebar:
     st.markdown("---")
     project = st.text_input("4. Project", placeholder="e.g., AEC-7 or V-64")
     status = st.selectbox("5. Status", ["To be done", "In process", "Done"])
-    
+
     receipt_file = st.file_uploader(
         "6. Files (Payment Receipt in PDF) - *Optional for now*",
         type=["pdf", "png", "jpg"],
         key="receipt_file",
     )
-    
+
     due_date = st.date_input("7. Due Date")
     admin_name = st.text_input("8. Admin Name Creating", placeholder="e.g., Sai")
     assignee = st.text_input(
@@ -81,19 +86,25 @@ with st.sidebar:
     submitted = st.form_submit_button("Save Entry", use_container_width=True)
 
     if submitted:
-      desc_file_name = description_file.name if description_file else "None"
-      if description_file:
-        with open(
-            os.path.join("uploads/descriptions", description_file.name), "wb"
-        ) as f:
+      desc_file_name = "None"
+      desc_url = ""
+      if description_file is not None:
+        desc_file_name = description_file.name
+        file_path = os.path.join(
+            "uploads/descriptions", description_file.name
+        )
+        with open(file_path, "wb") as f:
           f.write(description_file.getbuffer())
+        desc_url = f"app/static/{file_path}"  # Local file preview route
 
-      receipt_file_name = receipt_file.name if receipt_file else "Pending Payment / No Receipt Yet"
-      if receipt_file:
-        with open(
-            os.path.join("uploads/receipts", receipt_file.name), "wb"
-        ) as f:
+      receipt_file_name = "Pending Payment / No Receipt Yet"
+      receipt_url = ""
+      if receipt_file is not None:
+        receipt_file_name = receipt_file.name
+        file_path = os.path.join("uploads/receipts", receipt_file.name)
+        with open(file_path, "wb") as f:
           f.write(receipt_file.getbuffer())
+        receipt_url = f"app/static/{file_path}"
 
       current_time = datetime.now().strftime("%Y-%m-%d %I:%M %p")
 
@@ -103,9 +114,11 @@ with st.sidebar:
           "Amount": float(amount),
           "Description Text": description_text,
           "Description File": desc_file_name,
+          "Description URL": desc_url,
           "Project": project,
           "Status": status,
           "Payment Receipt PDF": receipt_file_name,
+          "Receipt URL": receipt_url,
           "Due Date": str(due_date),
           "Admin Creating": admin_name,
           "Created Time": current_time,
@@ -128,39 +141,65 @@ df = st.session_state.data
 if not df.empty:
   # Table Header
   st.markdown("---")
-  header_cols = st.columns([0.5, 1.2, 0.8, 1.0, 0.9, 1.1, 0.8, 0.8, 0.9, 0.9, 0.9, 0.6])
+  header_cols = st.columns(
+      [0.4, 1.2, 0.9, 0.9, 0.9, 1.1, 0.7, 0.7, 0.8, 0.8, 0.8, 0.5]
+  )
   header_cols[0].markdown("**ID**")
   header_cols[1].markdown("**Type & Vendor**")
-  header_cols[2].markdown("**Amount**")
-  header_cols[3].markdown("**Project**")
-  header_cols[4].markdown("**Status**")
-  header_cols[5].markdown("**Receipt**")
-  header_cols[6].markdown("**Due Date**")
-  header_cols[7].markdown("**Admin**")
-  header_cols[8].markdown("**Created**")
-  header_cols[9].markdown("**Last Edited**")
+  header_cols[2].markdown("**Amount (₹)**")
+  header_cols[3].markdown("**Desc File**")
+  header_cols[4].markdown("**Project**")
+  header_cols[5].markdown("**Status**")
+  header_cols[6].markdown("**Receipt**")
+  header_cols[7].markdown("**Due Date**")
+  header_cols[8].markdown("**Admin**")
+  header_cols[9].markdown("**Created**")
   header_cols[10].markdown("**Assignee**")
   header_cols[11].markdown("**Action**")
   st.markdown("---")
 
-  # Render each row with all 11 columns plus the Edit action button
+  # Render each row with clickable file links
   for _, row in df.iterrows():
-    row_cols = st.columns([0.5, 1.2, 0.8, 1.0, 0.9, 1.1, 0.8, 0.8, 0.9, 0.9, 0.9, 0.6])
-    row_cols[0].write(str(row['ID']))
-    row_cols[1].write(str(row['Type & Vendor/Customer']))
-    row_cols[2].write(f"${float(row['Amount']):,.2f}")
-    row_cols[3].write(str(row['Project']))
-    row_cols[4].write(str(row['Status']))
-    row_cols[5].write(str(row['Payment Receipt PDF']))
-    row_cols[6].write(str(row['Due Date']))
-    row_cols[7].write(str(row['Admin Creating']))
-    row_cols[8].write(str(row['Created Time']))
-    row_cols[9].write(str(row['Last Edited']))
-    row_cols[10].write(str(row['Assignee']))
-    
+    row_cols = st.columns(
+        [0.4, 1.2, 0.9, 0.9, 0.9, 1.1, 0.7, 0.7, 0.8, 0.8, 0.8, 0.5]
+    )
+    row_cols[0].write(str(row["ID"]))
+    row_cols[1].write(str(row["Type & Vendor/Customer"]))
+    row_cols[2].write(f"₹{float(row['Amount']):,.2f}")
+
+    # Make Description File clickable if uploaded
+    desc_display = row["Description File"]
+    if row["Description URL"]:
+      row_cols[3].markdown(
+          f"<a href='/{row['Description URL']}' target='_blank'>"
+          f"📁 {desc_display}</a>",
+          unsafe_allow_html=True,
+      )
+    else:
+      row_cols[3].write(desc_display)
+
+    row_cols[4].write(str(row["Project"]))
+    row_cols[5].write(str(row["Status"]))
+
+    # Make Receipt clickable if uploaded
+    receipt_display = row["Payment Receipt PDF"]
+    if row["Receipt URL"]:
+      row_cols[6].markdown(
+          f"<a href='/{row['Receipt URL']}' target='_blank'>📄 View"
+          f" Receipt</a>",
+          unsafe_allow_html=True,
+      )
+    else:
+      row_cols[6].write("⏳ Pending")
+
+    row_cols[7].write(str(row["Due Date"]))
+    row_cols[8].write(str(row["Admin Creating"]))
+    row_cols[9].write(str(row["Created Time"]))
+    row_cols[10].write(str(row["Assignee"]))
+
     with row_cols[11]:
       if st.button("✏️", key=f"edit_btn_{row['ID']}"):
-        st.session_state.editing_row_id = row['ID']
+        st.session_state.editing_row_id = row["ID"]
 
     st.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
 
@@ -170,7 +209,10 @@ if not df.empty:
     row_idx = df.index[df["ID"] == edit_id][0]
     current_row = df.loc[row_idx]
 
-    st.markdown(f"### ⚙️ Editing Entry ID: `{edit_id}` ({current_row['Type & Vendor/Customer']})")
+    st.markdown(
+        f"### ⚙️ Editing Entry ID: `{edit_id}`"
+        f" ({current_row['Type & Vendor/Customer']})"
+    )
 
     with st.form(f"edit_form_{edit_id}"):
       c1, c2, c3 = st.columns(3)
@@ -180,10 +222,11 @@ if not df.empty:
             "Type & Vendor/Customer", value=current_row["Type & Vendor/Customer"]
         )
         edit_amount = st.number_input(
-            "Amount",
+            "Amount (₹)",
             value=float(current_row["Amount"]),
             min_value=0.0,
-            step=100.0,
+            step=1000.0,
+            format="%.2f",
         )
         edit_project = st.text_input(
             "Project", value=current_row["Project"]
@@ -196,7 +239,9 @@ if not df.empty:
             if current_row["Status"] in status_list
             else 0
         )
-        edit_status = st.selectbox("Status", status_list, index=current_status_idx)
+        edit_status = st.selectbox(
+            "Status", status_list, index=current_status_idx
+        )
 
         try:
           parsed_date = datetime.strptime(
@@ -229,36 +274,48 @@ if not df.empty:
       update_submitted = st.form_submit_button(
           "💾 Save Changes & Upload Receipt", use_container_width=True
       )
-      cancel_clicked = st.form_submit_button("❌ Cancel Editing", use_container_width=False)
+      cancel_clicked = st.form_submit_button(
+          "❌ Cancel Editing", use_container_width=False
+      )
 
       if update_submitted:
         updated_receipt_name = current_row["Payment Receipt PDF"]
+        updated_receipt_url = current_row["Receipt URL"]
         if new_receipt_file is not None:
           updated_receipt_name = new_receipt_file.name
-          with open(
-              os.path.join("uploads/receipts", new_receipt_file.name), "wb"
-          ) as f:
+          file_path = os.path.join("uploads/receipts", new_receipt_file.name)
+          with open(file_path, "wb") as f:
             f.write(new_receipt_file.getbuffer())
+          updated_receipt_url = f"app/static/{file_path}"
 
         updated_desc_name = current_row["Description File"]
+        updated_desc_url = current_row["Description URL"]
         if new_desc_file is not None:
           updated_desc_name = new_desc_file.name
-          with open(
-              os.path.join("uploads/descriptions", new_desc_file.name), "wb"
-          ) as f:
+          file_path = os.path.join("uploads/descriptions", new_desc_file.name)
+          with open(file_path, "wb") as f:
             f.write(new_desc_file.getbuffer())
+          updated_desc_url = f"app/static/{file_path}"
 
-        st.session_state.data.at[row_idx, "Type & Vendor/Customer"] = edit_type_vendor
+        st.session_state.data.at[row_idx, "Type & Vendor/Customer"] = (
+            edit_type_vendor
+        )
         st.session_state.data.at[row_idx, "Amount"] = float(edit_amount)
         st.session_state.data.at[row_idx, "Description Text"] = edit_desc_text
-        st.session_state.data.at[row_idx, "Description File"] = updated_desc_name
+        st.session_state.data.at[row_idx, "Description File"] = (
+            updated_desc_name
+        )
+        st.session_state.data.at[row_idx, "Description URL"] = updated_desc_url
         st.session_state.data.at[row_idx, "Project"] = edit_project
         st.session_state.data.at[row_idx, "Status"] = edit_status
-        st.session_state.data.at[row_idx, "Payment Receipt PDF"] = updated_receipt_name
+        st.session_state.data.at[row_idx, "Payment Receipt PDF"] = (
+            updated_receipt_name
+        )
+        st.session_state.data.at[row_idx, "Receipt URL"] = updated_receipt_url
         st.session_state.data.at[row_idx, "Due Date"] = str(edit_due_date)
         st.session_state.data.at[row_idx, "Assignee"] = edit_assignee
-        st.session_state.data.at[row_idx, "Last Edited"] = datetime.now().strftime(
-            "%Y-%m-%d %I:%M %p"
+        st.session_state.data.at[row_idx, "Last Edited"] = (
+            datetime.now().strftime("%Y-%m-%d %I:%M %p")
         )
 
         st.session_state.editing_row_id = None
@@ -269,12 +326,18 @@ if not df.empty:
         st.session_state.editing_row_id = None
         st.rerun()
 
-  # Summary Metrics at the bottom
+  # Summary Metrics in Rupees
   st.markdown("---")
+  total_sum = df["Amount"].sum()
+  done_sum = df[df["Status"] == "Done"]["Amount"].sum()
+
   col1, col2, col3, col4 = st.columns(4)
   col1.metric("Total Entries", len(df))
-  col2.metric("To Be Done", len(df[df["Status"] == "To be done"]))
-  col3.metric("In Process", len(df[df["Status"] == "In process"]))
+  col2.metric("Total Amount (₹)", f"₹{total_sum:,.2f}")
+  col3.metric(
+      "To Be Done",
+      len(df[df["Status"] == "To be done"]),
+  )
   col4.metric("Done", len(df[df["Status"] == "Done"]))
 
 else:
