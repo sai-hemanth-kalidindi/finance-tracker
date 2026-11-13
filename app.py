@@ -332,14 +332,22 @@ if not df.empty:
           with open(updated_desc_path, "wb") as f:
             f.write(new_desc_file.getbuffer())
 
-        st.session_state.data.at[row_idx, "Type & Vendor/Customer"] = edit_type_vendor
+        st.session_state.data.at[row_idx, "Type & Vendor/Customer"] = (
+            edit_type_vendor
+        )
         st.session_state.data.at[row_idx, "Amount"] = float(edit_amount)
         st.session_state.data.at[row_idx, "Description Text"] = edit_desc_text
-        st.session_state.data.at[row_idx, "Description File"] = updated_desc_name
-        st.session_state.data.at[row_idx, "Description Path"] = updated_desc_path
+        st.session_state.data.at[row_idx, "Description File"] = (
+            updated_desc_name
+        )
+        st.session_state.data.at[row_idx, "Description Path"] = (
+            updated_desc_path
+        )
         st.session_state.data.at[row_idx, "Project"] = edit_project
         st.session_state.data.at[row_idx, "Status"] = edit_status
-        st.session_state.data.at[row_idx, "Payment Receipt PDF"] = updated_receipt_name
+        st.session_state.data.at[row_idx, "Payment Receipt PDF"] = (
+            updated_receipt_name
+        )
         st.session_state.data.at[row_idx, "Receipt Path"] = updated_receipt_path
         st.session_state.data.at[row_idx, "Due Date"] = str(edit_due_date)
         st.session_state.data.at[row_idx, "Assignee"] = edit_assignee
@@ -354,6 +362,15 @@ if not df.empty:
       if cancel_clicked:
         st.session_state.editing_row_id = None
         st.rerun()
+
+  # Summary Metrics in Rupees
+  st.markdown("---")
+  total_sum = pd.to_numeric(df["Amount"], errors="coerce").sum()
+
+  col1, col2, col3 = st.columns(3)
+  col1.metric("Total Amount (₹)", f"₹{total_sum:,.2f}")
+  col2.metric("To Be Done", len(df[df["Status"] == "To be done"]))
+  col3.metric("Done", len(df[df["Status"] == "Done"]))
 
 else:
   st.info(
