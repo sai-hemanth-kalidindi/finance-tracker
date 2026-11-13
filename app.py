@@ -25,11 +25,11 @@ if "data" not in st.session_state:
           "Amount",
           "Description Text",
           "Description File",
-          "Description URL",
+          "Description Path",
           "Project",
           "Status",
           "Payment Receipt PDF",
-          "Receipt URL",
+          "Receipt Path",
           "Due Date",
           "Admin Creating",
           "Created Time",
@@ -50,11 +50,11 @@ required_columns = [
     "Amount",
     "Description Text",
     "Description File",
-    "Description URL",
+    "Description Path",
     "Project",
     "Status",
     "Payment Receipt PDF",
-    "Receipt URL",
+    "Receipt Path",
     "Due Date",
     "Admin Creating",
     "Created Time",
@@ -108,24 +108,22 @@ with st.sidebar:
 
     if submitted:
       desc_file_name = "None"
-      desc_url = ""
+      desc_path = ""
       if description_file is not None:
         desc_file_name = description_file.name
-        file_path = os.path.join(
+        desc_path = os.path.join(
             "uploads/descriptions", description_file.name
         )
-        with open(file_path, "wb") as f:
+        with open(desc_path, "wb") as f:
           f.write(description_file.getbuffer())
-        desc_url = f"app/static/{file_path}"
 
       receipt_file_name = "Pending Payment / No Receipt Yet"
-      receipt_url = ""
+      receipt_path = ""
       if receipt_file is not None:
         receipt_file_name = receipt_file.name
-        file_path = os.path.join("uploads/receipts", receipt_file.name)
-        with open(file_path, "wb") as f:
+        receipt_path = os.path.join("uploads/receipts", receipt_file.name)
+        with open(receipt_path, "wb") as f:
           f.write(receipt_file.getbuffer())
-        receipt_url = f"app/static/{file_path}"
 
       current_time = datetime.now().strftime("%Y-%m-%d %I:%M %p")
 
@@ -135,11 +133,11 @@ with st.sidebar:
           "Amount": float(amount),
           "Description Text": description_text,
           "Description File": desc_file_name,
-          "Description URL": desc_url,
+          "Description Path": desc_path,
           "Project": project,
           "Status": status,
           "Payment Receipt PDF": receipt_file_name,
-          "Receipt URL": receipt_url,
+          "Receipt Path": receipt_path,
           "Due Date": str(due_date),
           "Admin Creating": admin_name,
           "Created Time": current_time,
@@ -179,7 +177,7 @@ if not df.empty:
   header_cols[11].markdown("**Action**")
   st.markdown("---")
 
-  # Render each row with clickable file links
+  # Render each row with preview triggers
   for _, row in df.iterrows():
     row_cols = st.columns(
         [0.4, 1.2, 0.9, 0.9, 0.9, 1.1, 0.7, 0.7, 0.8, 0.8, 0.8, 0.5]
@@ -190,34 +188,40 @@ if not df.empty:
         f"₹{float(row['Amount']) if pd.notna(row['Amount']) else 0.0:,.2f}"
     )
 
-    # Description File link handling
+    # Description File preview column
     desc_display = str(row["Description File"])
-    desc_url = (
-        str(row["Description URL"])
-        if pd.notna(row["Description URL"])
-        else ""
-    )
-    if desc_url and desc_url != "nan" and desc_url != "":
-      row_cols[3].markdown(
-          f"<a href='/{desc_url}' target='_blank'>📁 {desc_display}</a>",
-          unsafe_allow_html=True,
-      )
+    desc_p = str(row["Description Path"]) if pd.notna(row["Description Path"]) else ""
+    if desc_p and os.path.exists(desc_p):
+      with row_cols[3]:
+        with st.popover(f"📁 {desc_display[:10]}..."):
+          st.write(f"**Description File:** {desc_display}")
+          if desc_p.endswith((".png", ".jpg", ".jpeg")):
+            st.image(desc_p, use_column_width=True)
+          else:
+            with open(desc_p, "rb") as f:
+              st.download_button(
+                  "📥 Download/Open PDF", f, file_name=desc_display
+              )
     else:
       row_cols[3].write(desc_display if desc_display != "nan" else "None")
 
     row_cols[4].write(str(row["Project"]))
     row_cols[5].write(str(row["Status"]))
 
-    # Receipt link handling
+    # Receipt preview column
     receipt_display = str(row["Payment Receipt PDF"])
-    receipt_url = (
-        str(row["Receipt URL"]) if pd.notna(row["Receipt URL"]) else ""
-    )
-    if receipt_url and receipt_url != "nan" and receipt_url != "":
-      row_cols[6].markdown(
-          f"<a href='/{receipt_url}' target='_blank'>📄 View Receipt</a>",
-          unsafe_allow_html=True,
-      )
+    receipt_p = str(row["Receipt Path"]) if pd.notna(row["Receipt Path"]) else ""
+    if receipt_p and os.path.exists(receipt_p):
+      with row_cols[6]:
+        with st.popover("📄 View Receipt"):
+          st.write(f"**Receipt File:** {receipt_display}")
+          if receipt_p.endswith((".png", ".jpg", ".jpeg")):
+            st.image(receipt_p, use_column_width=True)
+          else:
+            with open(receipt_p, "rb") as f:
+              st.download_button(
+                  "📥 Download/Open PDF Receipt", f, file_name=receipt_display
+              )
     else:
       row_cols[6].write("⏳ Pending")
 
@@ -309,22 +313,24 @@ if not df.empty:
 
       if update_submitted:
         updated_receipt_name = current_row["Payment Receipt PDF"]
-        updated_receipt_url = current_row["Receipt URL"]
+        updated_receipt_path = current_row["Receipt Path"]
         if new_receipt_file is not None:
           updated_receipt_name = new_receipt_file.name
-          file_path = os.path.join("uploads/receipts", new_receipt_file.name)
-          with open(file_path, "wb") as f:
+          updated_receipt_path = os.path.join(
+              "uploads/receipts", new_receipt_file.name
+          )
+          with open(updated_receipt_path, "wb") as f:
             f.write(new_receipt_file.getbuffer())
-          updated_receipt_url = f"app/static/{file_path}"
 
         updated_desc_name = current_row["Description File"]
-        updated_desc_url = current_row["Description URL"]
+        updated_desc_path = current_row["Description Path"]
         if new_desc_file is not None:
           updated_desc_name = new_desc_file.name
-          file_path = os.path.join("uploads/descriptions", new_desc_file.name)
-          with open(file_path, "wb") as f:
+          updated_desc_path = os.path.join(
+              "uploads/descriptions", new_desc_file.name
+          )
+          with open(updated_desc_path, "wb") as f:
             f.write(new_desc_file.getbuffer())
-          updated_desc_url = f"app/static/{file_path}"
 
         st.session_state.data.at[row_idx, "Type & Vendor/Customer"] = (
             edit_type_vendor
@@ -334,13 +340,15 @@ if not df.empty:
         st.session_state.data.at[row_idx, "Description File"] = (
             updated_desc_name
         )
-        st.session_state.data.at[row_idx, "Description URL"] = updated_desc_url
+        st.session_state.data.at[row_idx, "Description Path"] = (
+            updated_desc_path
+        )
         st.session_state.data.at[row_idx, "Project"] = edit_project
         st.session_state.data.at[row_idx, "Status"] = edit_status
         st.session_state.data.at[row_idx, "Payment Receipt PDF"] = (
             updated_receipt_name
         )
-        st.session_state.data.at[row_idx, "Receipt URL"] = updated_receipt_url
+        st.session_state.data.at[row_idx, "Receipt Path"] = updated_receipt_path
         st.session_state.data.at[row_idx, "Due Date"] = str(edit_due_date)
         st.session_state.data.at[row_idx, "Assignee"] = edit_assignee
         st.session_state.data.at[row_idx, "Last Edited"] = (
@@ -359,14 +367,10 @@ if not df.empty:
   st.markdown("---")
   total_sum = pd.to_numeric(df["Amount"], errors="coerce").sum()
 
-  col1, col2, col3, col4 = st.columns(4)
-  col1.metric("Total Entries", len(df))
-  col2.metric("Total Amount (₹)", f"₹{total_sum:,.2f}")
-  col3.metric(
-      "To Be Done",
-      len(df[df["Status"] == "To be done"]),
-  )
-  col4.metric("Done", len(df[df["Status"] == "Done"]))
+  col1, col2, col3 = st.columns(3)
+  col1.metric("Total Amount (₹)", f"₹{total_sum:,.2f}")
+  col2.metric("To Be Done", len(df[df["Status"] == "To be done"]))
+  col3.metric("Done", len(df[df["Status"] == "Done"]))
 
 else:
   st.info(
