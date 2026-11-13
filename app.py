@@ -126,17 +126,16 @@ st.subheader("📋 Finance Tracker Dashboard")
 df = st.session_state.data
 
 if not df.empty:
-  # Render table rows with an inline Edit Action column
-  st.write("Click a row's **Edit / Upload** button below to open its update form:")
+  st.write("Click an **Edit** button in any row below to open its update form:")
   
   for _, row in df.iterrows():
     col_a, col_b, col_c, col_d, col_e, col_f, col_g = st.columns([0.6, 1.5, 1, 1.2, 1, 1, 0.8])
     col_a.write(f"**ID {row['ID']}**")
-    col_b.write(row['Type & Vendor/Customer'])
-    col_c.write(f"${row['Amount']:,.2f}")
-    col_d.write(row['Project'])
-    col_e.write(row['Status'])
-    col_f.write(row['Payment Receipt PDF'])
+    col_b.write(str(row['Type & Vendor/Customer']))
+    col_c.write(f"${float(row['Amount']):,.2f}")
+    col_d.write(str(row['Project']))
+    col_e.write(str(row['Status']))
+    col_f.write(str(row['Payment Receipt PDF']))
     
     with col_g:
       if st.button("✏️ Edit", key=f"edit_btn_{row['ID']}"):
@@ -241,4 +240,24 @@ if not df.empty:
             "%Y-%m-%d %I:%M %p"
         )
 
-        st.session_state.
+        st.session_state.editing_row_id = None
+        st.success(f"Entry ID {edit_id} updated successfully!")
+        st.rerun()
+
+      if cancel_clicked:
+        st.session_state.editing_row_id = None
+        st.rerun()
+
+  # Summary Metrics at the bottom
+  st.markdown("---")
+  col1, col2, col3, col4 = st.columns(4)
+  col1.metric("Total Entries", len(df))
+  col2.metric("To Be Done", len(df[df["Status"] == "To be done"]))
+  col3.metric("In Process", len(df[df["Status"] == "In process"]))
+  col4.metric("Done", len(df[df["Status"] == "Done"]))
+
+else:
+  st.info(
+      "No entries found yet. Use the sidebar form on the left to add your first"
+      " finance instruction!"
+  )
