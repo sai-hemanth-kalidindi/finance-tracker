@@ -332,4 +332,69 @@ if not df.empty:
           with open(updated_desc_path, "wb") as f:
             f.write(new_desc_file.getbuffer())
 
-        st.session_state.data.at[row_idx, "Type & Vendor/Customer"] = (
+        st.session_state.data.at[row_idx, "Type & Vendor/Customer"] = edit_type_vendor
+        st.session_state.data.at[row_idx, "Amount"] = float(edit_amount)
+        st.session_state.data.at[row_idx, "Description Text"] = edit_desc_text
+        st.session_state.data.at[row_idx, "Description File"] = updated_desc_name
+        st.session_state.data.at[row_idx, "Description Path"] = updated_desc_path
+        st.session_state.data.at[row_idx, "Project"] = edit_project
+        st.session_state.data.at[row_idx, "Status"] = edit_status
+        st.session_state.data.at[row_idx, "Payment Receipt PDF"] = updated_receipt_name
+        st.session_state.data.at[row_idx, "Receipt Path"] = updated_receipt_path
+        st.session_state.data.at[row_idx, "Due Date"] = str(edit_due_date)
+        st.session_state.data.at[row_idx, "Assignee"] = edit_assignee
+        st.session_state.data.at[row_idx, "Last Edited"] = (
+            datetime.now().strftime("%Y-%m-%d %I:%M %p")
+        )
+
+        st.session_state.editing_row_id = None
+        st.success(f"Entry ID {edit_id} updated successfully!")
+        st.rerun()
+
+      if cancel_clicked:
+        st.session_state.editing_row_id = None
+        st.rerun()
+
+  # --- URGENT PAYMENTS REQUIRED SECTION (SORTED BY DUE DATE) ---
+  st.markdown("---")
+  st.subheader("🚨 Urgent Payments Required (By Due Date)")
+
+  # Filter only active (non-Done) items that need payment
+  pending_df = df[df["Status"] != "Done"].copy()
+
+  if not pending_df.empty:
+    # Sort by due date ascending (earliest/most urgent dates first)
+    pending_df["Due Date Parsed"] = pd.to_datetime(
+        pending_df["Due Date"], errors="coerce"
+    )
+    pending_df = pending_df.sort_values(by="Due Date Parsed", ascending=True)
+
+    for _, row in pending_df.iterrows():
+      due_date_str = str(row["Due Date"])
+      vendor_role = str(row["Type & Vendor/Customer"])
+      amount_val = float(row["Amount"]) if pd.notna(row["Amount"]) else 0.0
+      project_name = str(row["Project"])
+      status_val = str(row["Status"])
+
+      with st.container():
+        uc1, uc2, uc3, uc4 = st.columns([1.5, 2.5, 1.2, 1.5])
+        uc1.markdown(f"📅 **Due: {due_date_str}**")
+        uc2.markdown(f"👤/🏢 **Vendor / Role:** `{vendor_role}`")
+        uc3.markdown(f"💰 **₹{amount_val:,.2f}**")
+        uc4.markdown(
+            f"📌 Status: **{status_val}** | Project: `{project_name}`"
+        )
+        st.markdown(
+            "<hr style='margin: 2px 0; border-top: 1px dashed #ddd;'>",
+            unsafe_allow_html=True,
+        )
+  else:
+    st.success(
+        "🎉 No pending payments! All tasks are marked as Done or cleared."
+    )
+
+else:
+  st.info(
+      "No entries found yet. Use the sidebar form on the left to add your first"
+      " finance instruction!"
+  )
