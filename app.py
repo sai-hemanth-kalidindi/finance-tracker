@@ -155,128 +155,183 @@ st.subheader("📋 Finance Tracker Dashboard")
 df = st.session_state.data
 
 if not df.empty:
-  # Clean display dataframe (hiding local file paths from direct table view for neatness)
-  view_df = df.drop(columns=["Description Path", "Receipt Path"])
+  st.write("Click **✏️ Edit** on any row below to drop down its update form:")
 
-  st.dataframe(view_df, use_container_width=True, hide_index=True)
-
-  st.markdown("---")
-  st.subheader("✏️ Edit Entry & Upload Receipts")
-  st.write(
-      "Select an **ID** below to update details, change status, or upload"
-      " payment receipts:"
-  )
-
-  # Dropdown selector for editing (works flawlessly on mobile and desktop)
-  row_options = []
+  # Render each entry as an interactive card row with an inline Edit button
   for _, row in df.iterrows():
-    label = (
-        f"ID {row['ID']}: {row['Type & Vendor/Customer']} | Project:"
-        f" {row['Project']} | Status: {row['Status']}"
-    )
-    row_options.append(label)
+    row_id = row["ID"]
 
-  selected_option = st.selectbox("Select Entry to Edit:", row_options)
-  selected_id = int(selected_option.split(":")[0].replace("ID ", ""))
-
-  row_idx = df.index[df["ID"] == selected_id][0]
-  current_row = df.loc[row_idx]
-
-  with st.form("edit_entry_form"):
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-      edit_type_vendor = st.text_input(
-          "Type & Vendor/Customer", value=current_row["Type & Vendor/Customer"]
-      )
-      edit_amount = st.number_input(
-          "Amount (₹)",
-          value=float(current_row["Amount (₹)"]),
-          min_value=0.0,
-          step=1000.0,
-          format="%.2f",
-      )
-      edit_project = st.text_input("Project", value=current_row["Project"])
-
-    with c2:
-      status_list = ["To be done", "In process", "Done"]
-      current_status_idx = (
-          status_list.index(current_row["Status"])
-          if current_row["Status"] in status_list
-          else 0
-      )
-      edit_status = st.selectbox("Status", status_list, index=current_status_idx)
-
-      try:
-        parsed_date = datetime.strptime(
-            str(current_row["Due Date"]), "%Y-%m-%d"
-        ).date()
-      except Exception:
-        parsed_date = datetime.today().date()
-      edit_due_date = st.date_input("Due Date", value=parsed_date)
-
-      edit_assignee = st.text_input(
-          "Assign (Reviewer Name)", value=current_row["Assignee"]
-      )
-
-    with c3:
-      st.caption(f"Current Description File: **{current_row['Description File']}**")
-      new_desc_file = st.file_uploader(
-          "Replace Description File",
-          type=["pdf", "png", "jpg"],
-          key=f"edit_desc_{selected_id}",
-      )
-
-      st.caption(f"Current Receipt Status: **{current_row['Receipt Status']}**")
-      new_receipt_file = st.file_uploader(
-          "Upload / Replace Payment Receipt (PDF)",
-          type=["pdf", "png", "jpg"],
-          key=f"edit_receipt_{selected_id}",
-      )
-
-    update_submitted = st.form_submit_button(
-        "💾 Save Changes", use_container_width=True
-    )
-
-    if update_submitted:
-      updated_receipt_status = current_row["Receipt Status"]
-      updated_receipt_path = current_row["Receipt Path"]
-      if new_receipt_file is not None:
-        updated_receipt_status = "📄 View / Attached"
-        updated_receipt_path = os.path.join(
-            "uploads/receipts", new_receipt_file.name
+    with st.container(border=True):
+      c1, c2, c3, c4 = st.columns([2.5, 2, 1.2, 0.8])
+      with c1:
+        st.markdown(f"**ID {row_id}: {row['Type & Vendor/Customer']}**")
+        st.caption(f"Project: `{row['Project']}` | Due: {row['Due Date']}")
+      with c2:
+        st.markdown(
+            f"💰 **₹{float(row['Amount (₹)']) if pd.notna(row['Amount (₹)']) else 0.0:,.2f}**"
         )
-        with open(updated_receipt_path, "wb") as f:
-          f.write(new_receipt_file.getbuffer())
+        st.markdown(f"Status: **{row['Status']}**")
+      with c3:
+        # File preview indicators
+        desc_file = str(row["Description File"])
+        desc_p = str(row["Description Path"]) if pd.notna(row["Description Path"]) else ""
+        if desc_p and os.path.exists(desc_p):
+          with st.popover("📁 Desc File"):
+            st.write(f"**Description:** {desc_file}")
+            if desc_p.endswith((".png", ".jpg", ".jpeg")):
+              st.image(desc_p, use_column_width=True)
+            else:
+              with open(desc_p, "rb") as f:
+                st.download_button(
+                    "📥 Download/Open PDF", f, file_name=desc_file
+                )
+        else:
+          st.caption("Desc: None")
 
-      updated_desc_name = current_row["Description File"]
-      updated_desc_path = current_row["Description Path"]
-      if new_desc_file is not None:
-        updated_desc_name = new_desc_file.name
-        updated_desc_path = os.path.join(
-            "uploads/descriptions", new_desc_file.name
+        rec_p = str(row["Receipt Path"]) if pd.notna(row["Receipt Path"]) else ""
+        if rec_p and os.path.exists(rec_p):
+          with st.popover("📄 Receipt"):
+            st.write(f"**Receipt:** {row['Receipt Status']}")
+            if rec_p.endswith((".png", ".jpg", ".jpeg")):
+              st.image(rec_p, use_column_width=True)
+            else:
+              with open(rec_p, "rb") as f:
+                st.download_button(
+                    "📥 Download/Open PDF Receipt", f, file_name="receipt.pdf"
+                )
+        else:
+          st.caption("Receipt: ⏳ Pending")
+
+      with c4:
+        is_editing = st.session_state.editing_row_id == row_id
+        button_label = "❌ Close" if is_editing else "✏️ Edit"
+        if st.button(button_label, key=f"edit_btn_{row_id}", use_container_width=True):
+          if is_editing:
+            st.session_state.editing_row_id = None
+          else:
+            st.session_state.editing_row_id = row_id
+          st.rerun()
+
+    # --- DROP-DOWN EDIT FORM (APPEARS DIRECTLY BELOW THE CLICKED ROW) ---
+    if st.session_state.editing_row_id == row_id:
+      with st.form(f"edit_form_{row_id}", clear_on_submit=False):
+        st.markdown(f"### ⚙️ Editing Entry ID: `{row_id}`")
+        ec1, ec2, ec3 = st.columns(3)
+
+        with ec1:
+          edit_type_vendor = st.text_input(
+              "Type & Vendor/Customer",
+              value=row["Type & Vendor/Customer"],
+              key=f"ev_{row_id}",
+          )
+          edit_amount = st.number_input(
+              "Amount (₹)",
+              value=float(row["Amount (₹)"]),
+              min_value=0.0,
+              step=1000.0,
+              format="%.2f",
+              key=f"ea_{row_id}",
+          )
+          edit_project = st.text_input(
+              "Project", value=row["Project"], key=f"ep_{row_id}"
+          )
+
+        with ec2:
+          status_list = ["To be done", "In process", "Done"]
+          curr_status = row["Status"]
+          c_idx = (
+              status_list.index(curr_status)
+              if curr_status in status_list
+              else 0
+          )
+          edit_status = st.selectbox(
+              "Status", status_list, index=c_idx, key=f"es_{row_id}"
+          )
+
+          try:
+            parsed_date = datetime.strptime(
+                str(row["Due Date"]), "%Y-%m-%d"
+            ).date()
+          except Exception:
+            parsed_date = datetime.today().date()
+          edit_due_date = st.date_input(
+              "Due Date", value=parsed_date, key=f"ed_{row_id}"
+          )
+
+          edit_assignee = st.text_input(
+              "Assign (Reviewer Name)",
+              value=row["Assignee"],
+              key=f"eass_{row_id}",
+          )
+
+        with ec3:
+          st.caption(f"Current Desc: **{row['Description File']}**")
+          new_desc_file = st.file_uploader(
+              "Replace Description File",
+              type=["pdf", "png", "jpg"],
+              key=f"new_desc_{row_id}",
+          )
+
+          st.caption(f"Current Receipt: **{row['Receipt Status']}**")
+          new_receipt_file = st.file_uploader(
+              "Upload/Replace Payment Receipt",
+              type=["pdf", "png", "jpg"],
+              key=f"new_rec_{row_id}",
+          )
+
+        update_submitted = st.form_submit_button(
+            "💾 Save Changes & Update", use_container_width=True
         )
-        with open(updated_desc_path, "wb") as f:
-          f.write(new_desc_file.getbuffer())
 
-      st.session_state.data.at[row_idx, "Type & Vendor/Customer"] = (
-          edit_type_vendor
-      )
-      st.session_state.data.at[row_idx, "Amount (₹)"] = float(edit_amount)
-      st.session_state.data.at[row_idx, "Description File"] = updated_desc_name
-      st.session_state.data.at[row_idx, "Description Path"] = updated_desc_path
-      st.session_state.data.at[row_idx, "Project"] = edit_project
-      st.session_state.data.at[row_idx, "Status"] = edit_status
-      st.session_state.data.at[row_idx, "Receipt Status"] = updated_receipt_status
-      st.session_state.data.at[row_idx, "Receipt Path"] = updated_receipt_path
-      st.session_state.data.at[row_idx, "Due Date"] = str(edit_due_date)
-      st.session_state.data.at[row_idx, "Assignee"] = edit_assignee
-      st.session_state.data.at[row_idx, "Last Edited"] = (
-          datetime.now().strftime("%Y-%m-%d %I:%M %p")
-      )
+        if update_submitted:
+          row_idx = df.index[df["ID"] == row_id][0]
+          updated_receipt_status = row["Receipt Status"]
+          updated_receipt_path = row["Receipt Path"]
+          if new_receipt_file is not None:
+            updated_receipt_status = "📄 View / Attached"
+            updated_receipt_path = os.path.join(
+                "uploads/receipts", new_receipt_file.name
+            )
+            with open(updated_receipt_path, "wb") as f:
+              f.write(new_receipt_file.getbuffer())
 
-      st.success(f"Entry ID {selected_id} updated successfully!")
-      st.rerun()
+          updated_desc_name = row["Description File"]
+          updated_desc_path = row["Description Path"]
+          if new_desc_file is not None:
+            updated_desc_name = new_desc_file.name
+            updated_desc_path = os.path.join(
+                "uploads/descriptions", new_desc_file.name
+            )
+            with open(updated_desc_path, "wb") as f:
+              f.write(new_desc_file.getbuffer())
+
+          st.session_state.data.at[row_idx, "Type & Vendor/Customer"] = (
+              edit_type_vendor
+          )
+          st.session_state.data.at[row_idx, "Amount (₹)"] = float(edit_amount)
+          st.session_state.data.at[row_idx, "Description File"] = (
+              updated_desc_name
+          )
+          st.session_state.data.at[row_idx, "Description Path"] = (
+              updated_desc_path
+          )
+          st.session_state.data.at[row_idx, "Project"] = edit_project
+          st.session_state.data.at[row_idx, "Status"] = edit_status
+          st.session_state.data.at[row_idx, "Receipt Status"] = (
+              updated_receipt_status
+          )
+          st.session_state.data.at[row_idx, "Receipt Path"] = (
+              updated_receipt_path
+          )
+          st.session_state.data.at[row_idx, "Due Date"] = str(edit_due_date)
+          st.session_state.data.at[row_idx, "Assignee"] = edit_assignee
+          st.session_state.data.at[row_idx, "Last Edited"] = (
+              datetime.now().strftime("%Y-%m-%d %I:%M %p")
+          )
+
+          st.session_state.editing_row_id = None
+          st.success(f"Entry ID {row_id} updated successfully!")
+          st.rerun()
 
 else:
   st.info(
