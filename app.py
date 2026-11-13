@@ -126,22 +126,43 @@ st.subheader("📋 Finance Tracker Dashboard")
 df = st.session_state.data
 
 if not df.empty:
-  st.write("Click an **Edit** button in any row below to open its update form:")
-  
+  # Table Header
+  st.markdown("---")
+  header_cols = st.columns([0.5, 1.2, 0.8, 1.0, 0.9, 1.1, 0.8, 0.8, 0.9, 0.9, 0.9, 0.6])
+  header_cols[0].markdown("**ID**")
+  header_cols[1].markdown("**Type & Vendor**")
+  header_cols[2].markdown("**Amount**")
+  header_cols[3].markdown("**Project**")
+  header_cols[4].markdown("**Status**")
+  header_cols[5].markdown("**Receipt**")
+  header_cols[6].markdown("**Due Date**")
+  header_cols[7].markdown("**Admin**")
+  header_cols[8].markdown("**Created**")
+  header_cols[9].markdown("**Last Edited**")
+  header_cols[10].markdown("**Assignee**")
+  header_cols[11].markdown("**Action**")
+  st.markdown("---")
+
+  # Render each row with all 11 columns plus the Edit action button
   for _, row in df.iterrows():
-    col_a, col_b, col_c, col_d, col_e, col_f, col_g = st.columns([0.6, 1.5, 1, 1.2, 1, 1, 0.8])
-    col_a.write(f"**ID {row['ID']}**")
-    col_b.write(str(row['Type & Vendor/Customer']))
-    col_c.write(f"${float(row['Amount']):,.2f}")
-    col_d.write(str(row['Project']))
-    col_e.write(str(row['Status']))
-    col_f.write(str(row['Payment Receipt PDF']))
+    row_cols = st.columns([0.5, 1.2, 0.8, 1.0, 0.9, 1.1, 0.8, 0.8, 0.9, 0.9, 0.9, 0.6])
+    row_cols[0].write(str(row['ID']))
+    row_cols[1].write(str(row['Type & Vendor/Customer']))
+    row_cols[2].write(f"${float(row['Amount']):,.2f}")
+    row_cols[3].write(str(row['Project']))
+    row_cols[4].write(str(row['Status']))
+    row_cols[5].write(str(row['Payment Receipt PDF']))
+    row_cols[6].write(str(row['Due Date']))
+    row_cols[7].write(str(row['Admin Creating']))
+    row_cols[8].write(str(row['Created Time']))
+    row_cols[9].write(str(row['Last Edited']))
+    row_cols[10].write(str(row['Assignee']))
     
-    with col_g:
-      if st.button("✏️ Edit", key=f"edit_btn_{row['ID']}"):
+    with row_cols[11]:
+      if st.button("✏️", key=f"edit_btn_{row['ID']}"):
         st.session_state.editing_row_id = row['ID']
 
-    st.divider()
+    st.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
 
   # If an entry is selected for editing, show its form right here
   if st.session_state.editing_row_id is not None:
