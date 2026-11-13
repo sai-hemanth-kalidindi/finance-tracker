@@ -43,6 +43,28 @@ if "next_id" not in st.session_state:
 if "editing_row_id" not in st.session_state:
   st.session_state.editing_row_id = None
 
+# Safety check: Ensure all necessary columns exist even if session state is old
+required_columns = [
+    "ID",
+    "Type & Vendor/Customer",
+    "Amount",
+    "Description Text",
+    "Description File",
+    "Description URL",
+    "Project",
+    "Status",
+    "Payment Receipt PDF",
+    "Receipt URL",
+    "Due Date",
+    "Admin Creating",
+    "Created Time",
+    "Last Edited",
+    "Assignee",
+]
+for col in required_columns:
+  if col not in st.session_state.data.columns:
+    st.session_state.data[col] = ""
+
 # --- SIDEBAR: ADD NEW ENTRY FORM ---
 with st.sidebar:
   st.header("➕ Add New Instruction")
@@ -51,7 +73,6 @@ with st.sidebar:
         "1. Type & Vendor/Customer Name",
         placeholder="e.g., Vendor Payment - UDL Building",
     )
-    # Currency updated to Rupees
     amount = st.number_input(
         "2. Amount (₹)", min_value=0.0, step=1000.0, format="%.2f"
     )
@@ -95,7 +116,7 @@ with st.sidebar:
         )
         with open(file_path, "wb") as f:
           f.write(description_file.getbuffer())
-        desc_url = f"app/static/{file_path}"  # Local file preview route
+        desc_url = f"app/static/{file_path}"
 
       receipt_file_name = "Pending Payment / No Receipt Yet"
       receipt_url = ""
@@ -165,28 +186,36 @@ if not df.empty:
     )
     row_cols[0].write(str(row["ID"]))
     row_cols[1].write(str(row["Type & Vendor/Customer"]))
-    row_cols[2].write(f"₹{float(row['Amount']):,.2f}")
+    row_cols[2].write(
+        f"₹{float(row['Amount']) if pd.notna(row['Amount']) else 0.0:,.2f}"
+    )
 
-    # Make Description File clickable if uploaded
-    desc_display = row["Description File"]
-    if row["Description URL"]:
+    # Description File link handling
+    desc_display = str(row["Description File"])
+    desc_url = (
+        str(row["Description URL"])
+        if pd.notna(row["Description URL"])
+        else ""
+    )
+    if desc_url and desc_url != "nan" and desc_url != "":
       row_cols[3].markdown(
-          f"<a href='/{row['Description URL']}' target='_blank'>"
-          f"📁 {desc_display}</a>",
+          f"<a href='/{desc_url}' target='_blank'>📁 {desc_display}</a>",
           unsafe_allow_html=True,
       )
     else:
-      row_cols[3].write(desc_display)
+      row_cols[3].write(desc_display if desc_display != "nan" else "None")
 
     row_cols[4].write(str(row["Project"]))
     row_cols[5].write(str(row["Status"]))
 
-    # Make Receipt clickable if uploaded
-    receipt_display = row["Payment Receipt PDF"]
-    if row["Receipt URL"]:
+    # Receipt link handling
+    receipt_display = str(row["Payment Receipt PDF"])
+    receipt_url = (
+        str(row["Receipt URL"]) if pd.notna(row["Receipt URL"]) else ""
+    )
+    if receipt_url and receipt_url != "nan" and receipt_url != "":
       row_cols[6].markdown(
-          f"<a href='/{row['Receipt URL']}' target='_blank'>📄 View"
-          f" Receipt</a>",
+          f"<a href='/{receipt_url}' target='_blank'>📄 View Receipt</a>",
           unsafe_allow_html=True,
       )
     else:
@@ -328,8 +357,7 @@ if not df.empty:
 
   # Summary Metrics in Rupees
   st.markdown("---")
-  total_sum = df["Amount"].sum()
-  done_sum = df[df["Status"] == "Done"]["Amount"].sum()
+  total_sum = pd.to_numeric(df["Amount"], errors="coerce").sum()
 
   col1, col2, col3, col4 = st.columns(4)
   col1.metric("Total Entries", len(df))
