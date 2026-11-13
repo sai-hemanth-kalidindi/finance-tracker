@@ -23,6 +23,7 @@ if "data" not in st.session_state:
           "ID",
           "Type & Vendor/Customer",
           "Amount (₹)",
+          "Description Text",
           "Description File",
           "Description Path",
           "Project",
@@ -47,6 +48,7 @@ required_columns = [
     "ID",
     "Type & Vendor/Customer",
     "Amount (₹)",
+    "Description Text",
     "Description File",
     "Description Path",
     "Project",
@@ -129,6 +131,7 @@ with st.sidebar:
           "ID": st.session_state.next_id,
           "Type & Vendor/Customer": type_vendor,
           "Amount (₹)": float(amount),
+          "Description Text": description_text,
           "Description File": desc_file_name,
           "Description Path": desc_path,
           "Project": project,
@@ -157,20 +160,25 @@ df = st.session_state.data
 if not df.empty:
   st.write("Click **✏️ Edit** on any row below to drop down its update form:")
 
-  # Render each entry as an interactive card row with an inline Edit button
+  # Render each entry as an interactive card displaying all fields
   for _, row in df.iterrows():
     row_id = row["ID"]
 
     with st.container(border=True):
-      c1, c2, c3, c4 = st.columns([2.5, 2, 1.2, 0.8])
+      c1, c2, c3, c4 = st.columns([2.5, 2, 1.5, 0.8])
+      
       with c1:
         st.markdown(f"**ID {row_id}: {row['Type & Vendor/Customer']}**")
+        st.markdown(f"📝 *{row['Description Text'] if row['Description Text'] else 'No description text'}*")
         st.caption(f"Project: `{row['Project']}` | Due: {row['Due Date']}")
+
       with c2:
         st.markdown(
             f"💰 **₹{float(row['Amount (₹)']) if pd.notna(row['Amount (₹)']) else 0.0:,.2f}**"
         )
         st.markdown(f"Status: **{row['Status']}**")
+        st.caption(f"Assignee: `{row['Assignee']}`")
+
       with c3:
         # File preview indicators
         desc_file = str(row["Description File"])
@@ -186,7 +194,7 @@ if not df.empty:
                     "📥 Download/Open PDF", f, file_name=desc_file
                 )
         else:
-          st.caption("Desc: None")
+          st.caption("Desc File: None")
 
         rec_p = str(row["Receipt Path"]) if pd.notna(row["Receipt Path"]) else ""
         if rec_p and os.path.exists(rec_p):
@@ -201,6 +209,9 @@ if not df.empty:
                 )
         else:
           st.caption("Receipt: ⏳ Pending")
+
+        st.caption(f"Admin: {row['Admin Creating']} | Created: {row['Created Time']}")
+        st.caption(f"Last Edited: {row['Last Edited']}")
 
       with c4:
         is_editing = st.session_state.editing_row_id == row_id
@@ -265,6 +276,11 @@ if not df.empty:
           )
 
         with ec3:
+          edit_desc_text = st.text_area(
+              "Description Text",
+              value=row["Description Text"],
+              key=f"edt_{row_id}",
+          )
           st.caption(f"Current Desc: **{row['Description File']}**")
           new_desc_file = st.file_uploader(
               "Replace Description File",
@@ -284,57 +300,4 @@ if not df.empty:
         )
 
         if update_submitted:
-          row_idx = df.index[df["ID"] == row_id][0]
-          updated_receipt_status = row["Receipt Status"]
-          updated_receipt_path = row["Receipt Path"]
-          if new_receipt_file is not None:
-            updated_receipt_status = "📄 View / Attached"
-            updated_receipt_path = os.path.join(
-                "uploads/receipts", new_receipt_file.name
-            )
-            with open(updated_receipt_path, "wb") as f:
-              f.write(new_receipt_file.getbuffer())
-
-          updated_desc_name = row["Description File"]
-          updated_desc_path = row["Description Path"]
-          if new_desc_file is not None:
-            updated_desc_name = new_desc_file.name
-            updated_desc_path = os.path.join(
-                "uploads/descriptions", new_desc_file.name
-            )
-            with open(updated_desc_path, "wb") as f:
-              f.write(new_desc_file.getbuffer())
-
-          st.session_state.data.at[row_idx, "Type & Vendor/Customer"] = (
-              edit_type_vendor
-          )
-          st.session_state.data.at[row_idx, "Amount (₹)"] = float(edit_amount)
-          st.session_state.data.at[row_idx, "Description File"] = (
-              updated_desc_name
-          )
-          st.session_state.data.at[row_idx, "Description Path"] = (
-              updated_desc_path
-          )
-          st.session_state.data.at[row_idx, "Project"] = edit_project
-          st.session_state.data.at[row_idx, "Status"] = edit_status
-          st.session_state.data.at[row_idx, "Receipt Status"] = (
-              updated_receipt_status
-          )
-          st.session_state.data.at[row_idx, "Receipt Path"] = (
-              updated_receipt_path
-          )
-          st.session_state.data.at[row_idx, "Due Date"] = str(edit_due_date)
-          st.session_state.data.at[row_idx, "Assignee"] = edit_assignee
-          st.session_state.data.at[row_idx, "Last Edited"] = (
-              datetime.now().strftime("%Y-%m-%d %I:%M %p")
-          )
-
-          st.session_state.editing_row_id = None
-          st.success(f"Entry ID {row_id} updated successfully!")
-          st.rerun()
-
-else:
-  st.info(
-      "No entries found yet. Use the sidebar form on the left to add your first"
-      " finance instruction!"
-  )
+          row_idx = df
