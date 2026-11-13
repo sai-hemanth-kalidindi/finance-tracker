@@ -38,7 +38,6 @@ if "data" not in st.session_state:
 if "next_id" not in st.session_state:
   st.session_state.next_id = 1
 
-# Dictionary to track which row is currently being edited
 if "editing_row_id" not in st.session_state:
   st.session_state.editing_row_id = None
 
@@ -127,23 +126,25 @@ st.subheader("📋 Finance Tracker Dashboard")
 df = st.session_state.data
 
 if not df.empty:
-  # Display data table
-  st.dataframe(df, use_container_width=True, hide_index=True)
+  # Render table rows with an inline Edit Action column
+  st.write("Click a row's **Edit / Upload** button below to open its update form:")
+  
+  for _, row in df.iterrows():
+    col_a, col_b, col_c, col_d, col_e, col_f, col_g = st.columns([0.6, 1.5, 1, 1.2, 1, 1, 0.8])
+    col_a.write(f"**ID {row['ID']}**")
+    col_b.write(row['Type & Vendor/Customer'])
+    col_c.write(f"${row['Amount']:,.2f}")
+    col_d.write(row['Project'])
+    col_e.write(row['Status'])
+    col_f.write(row['Payment Receipt PDF'])
+    
+    with col_g:
+      if st.button("✏️ Edit", key=f"edit_btn_{row['ID']}"):
+        st.session_state.editing_row_id = row['ID']
 
-  st.markdown("---")
-  st.subheader("✏️ Row Edit & Receipt Upload Manager")
-  st.write("Click a button below corresponding to the **ID** of the entry you want to edit or attach a receipt to:")
+    st.divider()
 
-  # Create a row of buttons for each entry ID so you can click directly on the row you want
-  cols = st.columns(min(len(df), 6)) if len(df) > 0 else []
-  for idx, row in df.iterrows():
-    col_idx = idx % len(cols) if cols else 0
-    if cols:
-      with cols[col_idx]:
-        if st.button(f"📝 Edit ID {row['ID']}", key=f"btn_{row['ID']}"):
-          st.session_state.editing_row_id = row['ID']
-
-  # If an entry is selected for editing, show its specific edit form right here
+  # If an entry is selected for editing, show its form right here
   if st.session_state.editing_row_id is not None:
     edit_id = st.session_state.editing_row_id
     row_idx = df.index[df["ID"] == edit_id][0]
@@ -240,24 +241,4 @@ if not df.empty:
             "%Y-%m-%d %I:%M %p"
         )
 
-        st.session_state.editing_row_id = None
-        st.success(f"Entry ID {edit_id} updated successfully!")
-        st.rerun()
-
-      if cancel_clicked:
-        st.session_state.editing_row_id = None
-        st.rerun()
-
-  # Summary Metrics at the bottom
-  st.markdown("---")
-  col1, col2, col3, col4 = st.columns(4)
-  col1.metric("Total Entries", len(df))
-  col2.metric("To Be Done", len(df[df["Status"] == "To be done"]))
-  col3.metric("In Process", len(df[df["Status"] == "In process"]))
-  col4.metric("Done", len(df[df["Status"] == "Done"]))
-
-else:
-  st.info(
-      "No entries found yet. Use the sidebar form on the left to add your first"
-      " finance instruction!"
-  )
+        st.session_state.
